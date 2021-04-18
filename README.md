@@ -27,7 +27,24 @@ optional arguments:
 
 The simplest usage is the following:
 ```
-python3 ahpi.py --gemeinde Hannover --street "Hildesheimer Str." --hausnr 123
+$ python3 ahpi.py --gemeinde Hannover --street "Hildesheimer Str." --hausnr 123                                  
+=== Bioabfall ===
+  Di, 20.04.2021
+  Fr, 23.04.2021
+  Di, 27.04.2021
+=== Restabfall ===
+  Di, 20.04.2021
+  Fr, 23.04.2021
+  Di, 27.04.2021
+=== Papier ===
+  Di, 20.04.2021
+  Fr, 23.04.2021
+  Di, 27.04.2021
+=== Leichtverpackungen ===
+  Di, 20.04.2021
+  Fr, 23.04.2021
+  Di, 27.04.2021
+
 ```
 It's important that you use the right street name! You can check it by either looking it up at https://www.aha-region.de/abholtermine/abfuhrkalender/, or by using this functionality from the script:
 ```
@@ -40,3 +57,7 @@ This will return entrys in the following format:
 ...
 ```
 In this case "Heusingerstr." is the right street name you should use. The script will show indefinable errors in case something is wrong.
+
+# Usage as a library
+
+Simply import the ahpi.py in your python project. You can then use `ahpi.get_abholungen(gemeinde, street, hausnr)` from inside your python script and get a dictionary with all trash pickups
