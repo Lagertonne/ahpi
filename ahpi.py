@@ -33,14 +33,33 @@ def get_streets(gemeinde, start_letter):
     
     return streets
 
+def get_loadingplaces(gemeinde, street, hausnr):
+    url = "https://www.aha-region.de/abholtermine/abfuhrkalender"
+    payload = {
+            'gemeinde': gemeinde,
+            'strasse': street,
+            'hausnr': hausnr,
+    }
 
-def __build_abholungen(gemeinde, street, hausnr):
+    response = requests.request("GET", url, params=payload)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    ladeplatz_raw = soup.find("select", {"name": "ladeort"}).findAll("option")
+    ladeplaces = [ { "id": ladeplatz.get("value"), "name": ladeplatz.get_text() } for ladeplatz in ladeplatz_raw ]
+
+    return ladeplaces
+
+def __build_abholungen(gemeinde, street, hausnr, loading_place):
     url = "https://www.aha-region.de/abholtermine/abfuhrkalender/"
 
-    ladeort = street.split("@")[0] + "-" + "{:04d}".format(int(hausnr))
+    if (not loading_place):
+        ladeort = street.split("@")[0] + "-" + "{:04d}".format(int(hausnr))
+    else:
+        ladeort = loading_place + "+"
 
-    payload_2 = {
+    payload = {
             'gemeinde': gemeinde,
+            'jsaus': '',
             'strasse': street.replace(" ", "+"),
             'hausnr': hausnr,
             'hausnraddon': '',
@@ -51,35 +70,42 @@ def __build_abholungen(gemeinde, street, hausnr):
     headers = {
       'Content-Type': 'application/x-www-form-urlencoded'
     }
-    
-    response = requests.request("POST", url, headers=headers, data = payload_2)
-    
+
+    # We need this hack, because requests replaces our dear @ and + with percent-encoding
+    payload_str = "&".join("%s=%s" % (k,v) for k,v in payload.items())
+    response = requests.request("POST", url, headers=headers, params=payload_str)
+
     soup = BeautifulSoup(response.text, 'html.parser')
 
     return_object = {}
-    
+
     for trash_type in ["Bioabfall", "Restabfall", "Papier", "Leichtverpackungen"]:
         return_object[trash_type] = []
-        abholungen = soup.find("img", {"title": trash_type}).parent.parent.parent.select('tr > td')
+        try:
+            abholungen = soup.find("img", {"title": trash_type}).parent.parent.parent.select('tr > td')
+        except AttributeError:
+            continue
         return_object[trash_type].append(abholungen[3].contents[1])
         return_object[trash_type].append(abholungen[3].contents[3])
         return_object[trash_type].append(abholungen[3].contents[5])
 
     return return_object
 
-def get_abholungen(gemeinde, input_street, hausnr):
+def get_abholungen(gemeinde, input_street, hausnr, loading_place):
     raw_streets = get_streets(gemeinde, input_street[0])
     street = [ street for street in raw_streets if input_street in street ][0]
 
-    return __build_abholungen(gemeinde, street, hausnr)
+    return __build_abholungen(gemeinde, street, hausnr, loading_place)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Get Abfuhrdaten from the AHA Website')
     parser.add_argument('--gemeinde', type=str, help='The name of the "Gemeinde"')
     parser.add_argument('--street', type=str, help='The name of the street')
     parser.add_argument('--hausnr', type=str, help='The number of the house.')
+    parser.add_argument('--loading-place', default="", type=str, help='The id of the loading place.')
     parser.add_argument('--list-gemeinden', action='store_true', help='List all "Gemeinden"')
     parser.add_argument('--list-streets', type=str, help='Requires \'Gemeinde,Letter\', where Letter is the first letter of the street you want to find')
+    parser.add_argument('--list-loadingplaces', type=str, help='Requires \'Gemeinde, Street, Hausnr\'. Use the output from list-gemeinden and list-streets :)')
     args = parser.parse_args()
 
     if (args.list_gemeinden):
@@ -90,8 +116,16 @@ if __name__ == "__main__":
         l = args.list_streets.split(",")[1]
         for street in get_streets(g, l):
             print(street)
+    elif (args.list_loadingplaces):
+        g = args.list_loadingplaces.split(",")[0]
+        streets = args.list_loadingplaces.split(",")[1]
+        hausnr = args.list_loadingplaces.split(",")[2]
+        for loadingplace in get_loadingplaces(g, streets, hausnr):
+            print("Id: " + loadingplace["id"])
+            print("Name: " + loadingplace["name"])
+            print("---")
     else:
-        abholungen = get_abholungen(args.gemeinde, args.street, args.hausnr)
+        abholungen = get_abholungen(args.gemeinde, args.street, args.hausnr, args.loading_place)
         for trash_type,dates in abholungen.items():
             print("=== " + trash_type + " ===")
             for date in dates:
