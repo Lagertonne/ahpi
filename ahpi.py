@@ -103,6 +103,7 @@ if __name__ == "__main__":
     parser.add_argument('--street', type=str, help='The name of the street')
     parser.add_argument('--hausnr', type=str, help='The number of the house.')
     parser.add_argument('--loading-place', default="", type=str, help='The id of the loading place.')
+    parser.add_argument('--json', action="store_true", required=False, help='Output the results as json')
     parser.add_argument('--list-gemeinden', action='store_true', help='List all "Gemeinden"')
     parser.add_argument('--list-streets', type=str, help='Requires \'Gemeinde,Letter\', where Letter is the first letter of the street you want to find')
     parser.add_argument('--list-loadingplaces', type=str, help='Requires \'Gemeinde, Street, Hausnr\'. Use the output from list-gemeinden and list-streets :)')
@@ -126,7 +127,10 @@ if __name__ == "__main__":
             print("---")
     else:
         abholungen = get_abholungen(args.gemeinde, args.street, args.hausnr, args.loading_place)
-        for trash_type,dates in abholungen.items():
-            print("=== " + trash_type + " ===")
-            for date in dates:
-                print("  " + date)
+        if args.json:
+            print(abholungen)
+        else:
+            for trash_type,dates in abholungen.items():
+                print("=== " + trash_type + " ===")
+                for date in dates:
+                    print("  " + date)
