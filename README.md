@@ -8,21 +8,27 @@ This is a small Python Script/Library which helps getting the next trash pickups
 
 The script expects the following parameters
 ```
---help                                             
 usage: ahpi.py [-h] [--gemeinde GEMEINDE] [--street STREET] [--hausnr HAUSNR]
-               [--list-gemeinden] [--list-streets LIST_STREETS]
+               [--loading-place LOADING_PLACE] [--json] [--list-gemeinden]
+               [--list-streets LIST_STREETS] [--list-loadingplaces LIST_LOADINGPLACES]
 
 Get Abfuhrdaten from the AHA Website
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --gemeinde GEMEINDE   The name of the "Gemeinde"
   --street STREET       The name of the street
   --hausnr HAUSNR       The number of the house.
+  --loading-place LOADING_PLACE
+                        The id of the loading place.
+  --json                Output the results as json
   --list-gemeinden      List all "Gemeinden"
   --list-streets LIST_STREETS
                         Requires 'Gemeinde,Letter', where Letter is the first letter of the
                         street you want to find
+  --list-loadingplaces LIST_LOADINGPLACES
+                        Requires 'Gemeinde, Street, Hausnr'. Use the output from list-
+                        gemeinden and list-streets :)
 ```
 
 The simplest usage is the following:
