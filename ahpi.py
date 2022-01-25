@@ -80,14 +80,17 @@ def __build_abholungen(gemeinde, street, hausnr, loading_place):
     return_object = {}
 
     for trash_type in ["Bioabfall", "Restabfall", "Papier", "Leichtverpackungen"]:
-        return_object[trash_type] = []
+        return_object[trash_type] = {
+            'dates': []
+        }
         try:
             abholungen = soup.find("img", {"title": trash_type}).parent.parent.next_sibling.next_sibling.select('tr > td')
         except AttributeError:
             continue
-        return_object[trash_type].append(abholungen[1].contents[1])
-        return_object[trash_type].append(abholungen[1].contents[3])
-        return_object[trash_type].append(abholungen[1].contents[5])
+        return_object[trash_type]['dates'].append(abholungen[1].contents[1])
+        return_object[trash_type]['dates'].append(abholungen[1].contents[3])
+        return_object[trash_type]['dates'].append(abholungen[1].contents[5])
+        return_object[trash_type]['interval'] = abholungen[2].contents[0]
 
     return return_object
 
@@ -130,7 +133,8 @@ if __name__ == "__main__":
         if args.json:
             print(abholungen)
         else:
-            for trash_type,dates in abholungen.items():
+            for trash_type,trash_type_data in abholungen.items():
                 print("=== " + trash_type + " ===")
-                for date in dates:
+                print("  (" + trash_type_data['interval'] + ")")
+                for date in trash_type_data['dates']:
                     print("  " + date)
