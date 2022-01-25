@@ -82,12 +82,12 @@ def __build_abholungen(gemeinde, street, hausnr, loading_place):
     for trash_type in ["Bioabfall", "Restabfall", "Papier", "Leichtverpackungen"]:
         return_object[trash_type] = []
         try:
-            abholungen = soup.find("img", {"title": trash_type}).parent.parent.parent.select('tr > td')
+            abholungen = soup.find("img", {"title": trash_type}).parent.parent.next_sibling.next_sibling.select('tr > td')
         except AttributeError:
             continue
-        return_object[trash_type].append(abholungen[3].contents[1])
-        return_object[trash_type].append(abholungen[3].contents[3])
-        return_object[trash_type].append(abholungen[3].contents[5])
+        return_object[trash_type].append(abholungen[1].contents[1])
+        return_object[trash_type].append(abholungen[1].contents[3])
+        return_object[trash_type].append(abholungen[1].contents[5])
 
     return return_object
 
