@@ -95,7 +95,11 @@ def __build_abholungen(gemeinde, street, hausnr, loading_place):
 def get_abholungen(input_gemeinde, input_street, hausnr, loading_place):
     gemeinde = input_gemeinde.lower().capitalize()
     raw_streets = get_streets(gemeinde, input_street[0])
-    matching_streets = [ street for street in raw_streets if re.search(input_street, street, re.IGNORECASE) ]
+    matching_streets = [
+        street
+        for street in raw_streets
+        if re.search(input_street, street, re.IGNORECASE)
+    ]
     matching_streets_count = len(matching_streets)
     street = (
         matching_streets[0]
