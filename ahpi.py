@@ -1,19 +1,20 @@
-import requests
-from bs4 import BeautifulSoup, Comment
+from bs4 import BeautifulSoup
 import argparse
 import re
+import aiohttp
+import asyncio
 
-def get_gemeinden():
+async def get_gemeinden(session):
     url = "https://www.aha-region.de/abholtermine/abfuhrkalender"
-    response = requests.request("GET", url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    response = await session.get(url)
+    soup = BeautifulSoup(await response.text(), 'html.parser')
 
     gemeinden_raw = soup.find("select", {"id": "gemeinde", "name": "gemeinde"}).findAll("option")
     gemeinden = [ gemeinde.get("value") for gemeinde in gemeinden_raw ]
 
     return gemeinden
 
-def get_streets(gemeinde, start_letter):
+async def get_streets(session, gemeinde, start_letter):
     url = "https://www.aha-region.de/abholtermine/abfuhrkalender"
     if (start_letter == 'Z'):
         end_letter = '['
@@ -26,15 +27,15 @@ def get_streets(gemeinde, start_letter):
             'bis': end_letter,
     }
     
-    response = requests.request("GET", url, params=payload)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    response = await session.get(url, params=payload)
+    soup = BeautifulSoup(await response.text(), 'html.parser')
     
     streets_raw = soup.find("select", {"id": "strasse", "name": "strasse"}).findAll("option")
     streets = [ street.get("value") for street in streets_raw ]
     
     return streets
 
-def get_loadingplaces(gemeinde, street, hausnr):
+async def get_loadingplaces(session, gemeinde, street, hausnr):
     url = "https://www.aha-region.de/abholtermine/abfuhrkalender"
     payload = {
             'gemeinde': gemeinde,
@@ -42,15 +43,15 @@ def get_loadingplaces(gemeinde, street, hausnr):
             'hausnr': hausnr,
     }
 
-    response = requests.request("GET", url, params=payload)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    response = await session.get(url, params=payload)
+    soup = BeautifulSoup(await response.text(), 'html.parser')
 
     ladeplatz_raw = soup.find("select", {"name": "ladeort"}).findAll("option")
     ladeplaces = [ { "id": ladeplatz.get("value"), "name": ladeplatz.get_text() } for ladeplatz in ladeplatz_raw ]
 
     return ladeplaces
 
-def __build_abholungen(gemeinde, street, hausnr, loading_place):
+async def __build_abholungen(session, gemeinde, street, hausnr, loading_place):
     url = "https://www.aha-region.de/abholtermine/abfuhrkalender/"
 
     if (not loading_place):
@@ -74,9 +75,9 @@ def __build_abholungen(gemeinde, street, hausnr, loading_place):
 
     # We need this hack, because requests replaces our dear @ and + with percent-encoding
     payload_str = "&".join("%s=%s" % (k,v) for k,v in payload.items())
-    response = requests.request("POST", url, headers=headers, params=payload_str)
+    response = await session.post(url, headers=headers, params=payload_str)
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(await response.text(), 'html.parser')
 
     return_object = {}
 
@@ -95,9 +96,9 @@ def __build_abholungen(gemeinde, street, hausnr, loading_place):
 
     return return_object
 
-def get_abholungen(input_gemeinde, input_street, hausnr, loading_place):
+async def get_abholungen(session, input_gemeinde, input_street, hausnr, loading_place):
     gemeinde = input_gemeinde.lower().capitalize()
-    raw_streets = get_streets(gemeinde, input_street[0])
+    raw_streets = await get_streets(session, gemeinde, input_street[0])
     matching_streets = [
         street
         for street in raw_streets
@@ -114,10 +115,41 @@ def get_abholungen(input_gemeinde, input_street, hausnr, loading_place):
         )
     )
 
-    return __build_abholungen(gemeinde, street, hausnr, loading_place)
+    return await __build_abholungen(session, gemeinde, street, hausnr, loading_place)
 
 def usage_error(msg):
     raise Exception(msg)
+
+async def main(args):
+    async with aiohttp.ClientSession() as session:
+        if (args.list_gemeinden):
+            for gemeinde in get_gemeinden(session):
+                print(gemeinde)
+        elif (args.list_streets):
+            g = args.list_streets.split(",")[0]
+            l = args.list_streets.split(",")[1]
+            for street in await get_streets(session, g, l):
+                print(street)
+        elif (args.list_loadingplaces):
+            g = args.list_loadingplaces.split(",")[0]
+            streets = args.list_loadingplaces.split(",")[1]
+            hausnr = args.list_loadingplaces.split(",")[2]
+            for loadingplace in await get_loadingplaces(session, g, streets, hausnr):
+                print("Id: " + loadingplace["id"])
+                print("Name: " + loadingplace["name"])
+                print("---")
+        else:
+            abholungen = await get_abholungen(session, args.gemeinde, args.street, args.hausnr, args.loading_place)
+            if args.json:
+                print(abholungen)
+            else:
+                for trash_type,trash_type_data in abholungen.items():
+                    print("=== " + trash_type + " ===")
+                    if 'interval' in trash_type_data:
+                        print("  (" + trash_type_data['interval'] + ")")
+                    if len(trash_type_data['dates']) > 0:
+                        for date in trash_type_data['dates']:
+                            print("  " + date)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Get Abfuhrdaten from the AHA Website')
@@ -131,29 +163,5 @@ if __name__ == "__main__":
     parser.add_argument('--list-loadingplaces', type=str, help='Requires \'Gemeinde, Street, Hausnr\'. Use the output from list-gemeinden and list-streets :)')
     args = parser.parse_args()
 
-    if (args.list_gemeinden):
-        for gemeinde in get_gemeinden():
-            print(gemeinde)
-    elif (args.list_streets):
-        g = args.list_streets.split(",")[0]
-        l = args.list_streets.split(",")[1]
-        for street in get_streets(g, l):
-            print(street)
-    elif (args.list_loadingplaces):
-        g = args.list_loadingplaces.split(",")[0]
-        streets = args.list_loadingplaces.split(",")[1]
-        hausnr = args.list_loadingplaces.split(",")[2]
-        for loadingplace in get_loadingplaces(g, streets, hausnr):
-            print("Id: " + loadingplace["id"])
-            print("Name: " + loadingplace["name"])
-            print("---")
-    else:
-        abholungen = get_abholungen(args.gemeinde, args.street, args.hausnr, args.loading_place)
-        if args.json:
-            print(abholungen)
-        else:
-            for trash_type,trash_type_data in abholungen.items():
-                print("=== " + trash_type + " ===")
-                print("  (" + trash_type_data['interval'] + ")")
-                for date in trash_type_data['dates']:
-                    print("  " + date)
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(main(args))
